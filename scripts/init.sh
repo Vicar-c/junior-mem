@@ -93,7 +93,7 @@ CONFEOF
 
 setup_cron() {
   local schedule="$1" script="$2"
-  local cron_line="${schedule} ${script} >> ${KNOWLEDGE_DIR}/../consolidation.log 2>&1"
+  local cron_line="${schedule} ${script} >> ${KNOWLEDGE_DIR}/consolidation.log 2>&1"
   crontab -l 2>/dev/null | grep -v "consolidate.sh" | crontab - 2>/dev/null || true
   (crontab -l 2>/dev/null; echo "$cron_line") | crontab -
   ok "cron configured: ${schedule}"
