@@ -142,7 +142,7 @@ Configuration is stored in `~/.claude/knowledge/config.json` and set during `/ju
 |:---:|:-------:|:-----------:|
 | `model_cheap` | `claude-haiku-4-5-20251001` | Model for extraction and classification |
 | `model_strong` | `claude-opus-4-7` | Model for consolidation and quality review |
-| `soft_limit` | `200` | Target max active entries (triggers pruning) |
+| `soft_limit` | `1000` | Target max active entries (triggers pruning) |
 | `consolidation_time` | `0 3 * * *` | Cron schedule for nightly consolidation |
 
 ---
@@ -172,10 +172,11 @@ junior-mem/
 │   ├── consolidate.sh    # 5-stage consolidation pipeline
 │   ├── report-server.cjs # Web UI for feedback review
 │   ├── init.sh           # Setup wizard
+│   ├── recover.sh        # SessionStart hook: recover orphaned transcripts
 │   ├── uninstall.sh      # Full cleanup
-│   └── test.sh           # Manual test utilities
+│   └── diagnose.sh       # Diagnostic & troubleshooting utilities
 ├── .claude-plugin/plugin.json
-├── .claude-hooks/hooks.json
+├── hooks/hooks.json
 └── .mcp.json
 ```
 
@@ -233,13 +234,13 @@ Run `/junior-mem:uninstall` to remove all data, cron jobs, and the plugin itself
 
 ```bash
 # Check status
-KNOWLEDGE_DIR=~/.claude/knowledge bash scripts/test.sh status
+KNOWLEDGE_DIR=~/.claude/knowledge bash scripts/diagnose.sh status
 
 # Run consolidation now
 KNOWLEDGE_DIR=~/.claude/knowledge bash scripts/consolidate.sh
 
-# Seed test data
-KNOWLEDGE_DIR=~/.claude/knowledge bash scripts/test.sh seed
+# Clean diagnostic artifacts
+KNOWLEDGE_DIR=~/.claude/knowledge bash scripts/diagnose.sh clean
 ```
 
 ---

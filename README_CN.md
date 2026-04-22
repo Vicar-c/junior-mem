@@ -142,7 +142,7 @@ MCP server 提供工具，Claude Code 可在任意对话中调用，查找和使
 |:------:|:------:|:----:|
 | `model_cheap` | `claude-haiku-4-5-20251001` | 用于提取和分类的模型 |
 | `model_strong` | `claude-opus-4-7` | 用于沉淀和质量审查的模型 |
-| `soft_limit` | `200` | 活跃条目目标上限（触发裁剪） |
+| `soft_limit` | `1000` | 活跃条目目标上限（触发裁剪） |
 | `consolidation_time` | `0 3 * * *` | 每夜沉淀的 cron 时间 |
 
 ---
@@ -172,10 +172,11 @@ junior-mem/
 │   ├── consolidate.sh    # 5 阶段沉淀管线
 │   ├── report-server.cjs # 反馈评审 Web UI
 │   ├── init.sh           # 安装向导
+│   ├── recover.sh        # SessionStart hook：恢复遗漏的对话记录
 │   ├── uninstall.sh      # 完整卸载
-│   └── test.sh           # 手动测试工具
+│   └── diagnose.sh       # 诊断与排查工具
 ├── .claude-plugin/plugin.json
-├── .claude-hooks/hooks.json
+├── hooks/hooks.json
 └── .mcp.json
 ```
 
@@ -233,13 +234,13 @@ junior-mem/
 
 ```bash
 # 查看状态
-KNOWLEDGE_DIR=~/.claude/knowledge bash scripts/test.sh status
+KNOWLEDGE_DIR=~/.claude/knowledge bash scripts/diagnose.sh status
 
 # 立即执行沉淀
 KNOWLEDGE_DIR=~/.claude/knowledge bash scripts/consolidate.sh
 
-# 填充测试数据
-KNOWLEDGE_DIR=~/.claude/knowledge bash scripts/test.sh seed
+# 清理诊断产物
+KNOWLEDGE_DIR=~/.claude/knowledge bash scripts/diagnose.sh clean
 ```
 
 ---
