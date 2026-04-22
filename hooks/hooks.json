@@ -1,5 +1,12 @@
 {
   "hooks": {
+    "SessionStart": [{
+      "hooks": [{
+        "type": "command",
+        "command": "bash ${CLAUDE_PLUGIN_ROOT}/scripts/recover.sh",
+        "timeout": 30
+      }]
+    }],
     "Stop": [{
       "hooks": [{
         "type": "command",
