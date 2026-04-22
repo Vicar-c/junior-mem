@@ -55,18 +55,22 @@ function generateCalibrationText(): void {
   process.stdin.on('end', () => {
     const feedback = JSON.parse(input || '[]');
     if (!Array.isArray(feedback) || feedback.length === 0) { console.log(''); return; }
-    const lines = ['User preference calibration (based on recent feedback):'];
+    const lines = [
+      'User preference calibration — recent feedback on knowledge quality:',
+      'These are knowledge entries the user reviewed. Each includes what was rated, the rating, and the user\'s comment.',
+      'Use these to calibrate your own extraction judgment — understand what the user values and what they don\'t.',
+    ];
     feedback.forEach((f: any, i: number) => {
       const rating: Record<string, string> = { good: '[GOOD]', normal: '[NORMAL]', bad: '[BAD]' };
       const tag = rating[f.feedback_rating] || '[?]';
-      const comment = f.feedback_comment ? ': "' + f.feedback_comment + '"' : '';
       const title = f.title || f.id;
-      lines.push(`${i + 1}. ${tag} "${title}"${comment}`);
-      if (f.feedback_rating === 'good') {
-        lines.push('   → Inference: user values this type of knowledge, increase extraction priority for similar content');
+      lines.push(`${i + 1}. ${tag} "${title}"`);
+      if (f.body) {
+        const snippet = f.body.length > 200 ? f.body.slice(0, 200) + '...' : f.body;
+        lines.push(`   Content: "${snippet}"`);
       }
-      if (f.feedback_rating === 'bad') {
-        lines.push('   → Inference: user does not need this type of knowledge, decrease extraction priority for similar content');
+      if (f.feedback_comment) {
+        lines.push(`   User comment: "${f.feedback_comment}"`);
       }
     });
     console.log(lines.join('\n'));
