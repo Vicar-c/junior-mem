@@ -15,7 +15,6 @@ ACCESS_LOG="$KNOWLEDGE_DIR/access_log.jsonl"
 STATE_FILE="$KNOWLEDGE_DIR/state.json"
 CONFIG_FILE="$KNOWLEDGE_DIR/config.json"
 DB_FILE="$KNOWLEDGE_DIR/knowledge.db"
-MCP_SCRIPT="$(cd "$(dirname "$0")" && pwd)/knowledge-mcp.cjs"
 
 TODAY=$(date +%Y-%m-%d)
 TODAY_DIR="$CONSOLIDATION_DIR/$TODAY"
@@ -53,7 +52,8 @@ has_staging_data() { local c; c=$(find "$STAGING_DIR" -maxdepth 1 -name "*.jsonl
 # ── SQLite helpers ─────────────────────────────────────────────────────
 
 PLUGIN_ROOT="$(cd "$(dirname "$0")/.." && pwd)"
-NODE_MODULES="$PLUGIN_ROOT/node_modules"
+MCP_SCRIPT="$PLUGIN_ROOT/dist/mcp-server.js"
+CLI="$PLUGIN_ROOT/dist/cli.js"
 export KNOWLEDGE_DIR="$KNOWLEDGE_DIR"
 export CLAUDE_PLUGIN_ROOT="$PLUGIN_ROOT"
 
@@ -63,64 +63,20 @@ CLAUDE_FLAGS="--bare --plugin-dir $PLUGIN_ROOT"
 # Get unconsumed feedback as JSON for RL calibration
 read_unconsumed_feedback() {
   if [[ ! -f "$DB_FILE" ]]; then echo "[]"; return; fi
-  node -e "
-    const Database = require('$NODE_MODULES/better-sqlite3');
-    const db = new Database('$DB_FILE');
-    const rows = db.prepare(
-      'SELECT id, title, body, feedback_rating, feedback_comment, feedback_at FROM knowledge WHERE feedback_rating IS NOT NULL AND feedback_consumed = 0 ORDER BY feedback_at DESC LIMIT 20'
-    ).all();
-    console.log(JSON.stringify(rows));
-    db.close();
-  " 2>/dev/null || echo "[]"
+  node "$CLI" read-unconsumed-feedback "$DB_FILE" 2>/dev/null || echo "[]"
 }
 
 # Apply feedback-based importance adjustments + mark consumed
 consume_feedback() {
   if [[ ! -f "$DB_FILE" ]]; then return; fi
-  node -e "
-    const Database = require('$NODE_MODULES/better-sqlite3');
-    const db = new Database('$DB_FILE');
-    const tx = db.transaction(() => {
-      // Good: importance +1 (max 5)
-      db.prepare(
-        'UPDATE knowledge SET importance = MIN(5, importance + 1) WHERE feedback_rating = ? AND feedback_consumed = 0'
-      ).run('good');
-      // Bad: importance -1 (min 1), deprecate if already 1
-      db.prepare(
-        'UPDATE knowledge SET importance = MAX(1, importance - 1) WHERE feedback_rating = ? AND feedback_consumed = 0 AND importance > 1'
-      ).run('bad');
-      db.prepare(
-        'UPDATE knowledge SET status = ? WHERE feedback_rating = ? AND feedback_consumed = 0 AND importance = 1'
-      ).run('deprecated', 'bad');
-      // Mark all as consumed
-      db.prepare(
-        'UPDATE knowledge SET feedback_consumed = 1 WHERE feedback_rating IS NOT NULL AND feedback_consumed = 0'
-      ).run();
-    });
-    tx();
-    console.log('Feedback consumed');
-    db.close();
-  " 2>/dev/null
+  node "$CLI" consume-feedback "$DB_FILE" 2>/dev/null
 }
 
 # Generate RL calibration text from feedback
 generate_calibration_text() {
   local feedback="$1"
   if [[ "$feedback" == "[]" ]] || [[ -z "$feedback" ]]; then echo ""; return; fi
-  node -e "
-    const fb = $feedback;
-    if (fb.length === 0) { console.log(''); process.exit(0); }
-    const lines = ['User preference calibration (based on recent feedback):'];
-    fb.forEach((f, i) => {
-      const rating = {good: '[GOOD]', normal: '[NORMAL]', bad: '[BAD]'}[f.feedback_rating] || '[?]';
-      const comment = f.feedback_comment ? ': \"' + f.feedback_comment + '\"' : '';
-      const title = f.title || f.id;
-      lines.push((i+1) + '. ' + rating + ' \"' + title + '\"' + comment);
-      if (f.feedback_rating === 'good') lines.push('   \\u2192 Inference: user values this type of knowledge, increase extraction priority for similar content');
-      if (f.feedback_rating === 'bad') lines.push('   \\u2192 Inference: user does not need this type of knowledge, decrease extraction priority for similar content');
-    });
-    console.log(lines.join('\\n'));
-  " 2>/dev/null || echo ""
+  echo "$feedback" | node "$CLI" generate-calibration-text 2>/dev/null || echo ""
 }
 
 # Write consolidation_ops to SQLite
@@ -129,113 +85,19 @@ write_consolidation_ops() {
   local decisions="$2"
   local proposals="$3"
   local challenges="$4"
-  local entries_file="$TODAY_DIR/05-entries.json"
   if [[ ! -f "$decisions" ]] || [[ ! -f "$DB_FILE" ]]; then return; fi
-
-  node -e "
-    const Database = require('$NODE_MODULES/better-sqlite3');
-    const fs = require('fs');
-    const db = new Database('$DB_FILE');
-    const decisions = JSON.parse(fs.readFileSync('$decisions', 'utf-8'));
-    const proposals = fs.existsSync('$proposals') ? JSON.parse(fs.readFileSync('$proposals', 'utf-8')) : {proposals: []};
-    const challenges = fs.existsSync('$challenges') ? JSON.parse(fs.readFileSync('$challenges', 'utf-8')) : {challenges: []};
-    const entries = fs.existsSync('$entries_file') ? JSON.parse(fs.readFileSync('$entries_file', 'utf-8')) : [];
-
-    // Build index: proposal_id -> actual knowledge_id from executor entries
-    // Entries are ordered to match proposals, so map by position if no explicit link
-    const proposalIds = (decisions.decisions || []).map(d => d.proposal_id);
-    const entryMap = {};
-    entries.forEach((e, i) => {
-      if (proposalIds[i]) entryMap[proposalIds[i]] = e.id;
-    });
-    // Also try matching by title as fallback
-    entries.forEach(e => {
-      if (!Object.values(entryMap).includes(e.id)) {
-        const match = (decisions.decisions || []).find(d => {
-          const p = (proposals.proposals || []).find(p2 => p2.id === d.proposal_id);
-          return p && p.title === e.title;
-        });
-        if (match) entryMap[match.proposal_id] = e.id;
-      }
-    });
-
-    const insertOp = db.prepare(\`
-      INSERT INTO consolidation_ops (date, knowledge_id, operation, title, body, reasoning, source_observations, importance_before, importance_after, tags, type)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-    \`);
-
-    // Map proposal_id to proposal/challenge for reasoning
-    const pMap = {};
-    (proposals.proposals || []).forEach(p => { pMap[p.id] = p; });
-    const cMap = {};
-    (challenges.challenges || []).forEach(c => { cMap[c.proposal_id] = c; });
-
-    const tx = db.transaction(() => {
-      // Clear existing ops for this date (idempotent)
-      db.prepare('DELETE FROM consolidation_ops WHERE date = ?').run('$date');
-
-      for (const d of (decisions.decisions || [])) {
-        const p = pMap[d.proposal_id] || {};
-        const c = cMap[d.proposal_id];
-        const action = (d.final_action || {}).action || d.decision || 'unknown';
-        const fa = d.final_action || {};
-
-        // Resolve real knowledge ID: executor entry > target_id > proposal_id
-        const realKid = entryMap[d.proposal_id] || fa.target_id || d.proposal_id || '';
-
-        const reasoning = {
-          scanner: p.reasoning || '',
-          challenger: c ? (c.dimension + ': ' + c.reasoning) : '',
-          auditor: d.reasoning || '',
-        };
-
-        insertOp.run(
-          '$date',
-          realKid,
-          action === 'approved' ? (p.action || 'create') :
-            action === 'modified' ? (p.action || 'update') :
-            action === 'rejected' ? 'reject' : action,
-          fa.title || p.title || '',
-          fa.content_draft || p.content_draft || '',
-          JSON.stringify(reasoning),
-          JSON.stringify(p.source_staging ? [{turn: p.source_staging}] : []),
-          null,
-          fa.importance || p.importance || null,
-          JSON.stringify(fa.tags || p.tags || []),
-          fa.type || p.type || p.source_type || 'knowledge'
-        );
-      }
-    });
-    tx();
-    console.log('Consolidation ops written for $date');
-    db.close();
-  " 2>/dev/null
+  node "$CLI" write-consolidation-ops "$DB_FILE" "$date" "$decisions" "$proposals" "$challenges" 2>/dev/null
 }
 
 # Get active knowledge summary as JSON (for LLM context)
 read_active_summary() {
   if [[ ! -f "$DB_FILE" ]]; then echo "[]"; return; fi
-  node -e "
-    const Database = require('$NODE_MODULES/better-sqlite3');
-    const db = new Database('$DB_FILE');
-    const rows = db.prepare('SELECT id, title, type, importance, tags, status FROM knowledge WHERE status = ? ORDER BY importance DESC').all('active');
-    console.log(JSON.stringify(rows.map(r => ({
-      id: r.id, title: r.title, type: r.type,
-      importance: r.importance,
-      tags: JSON.parse(r.tags || '[]')
-    }))));
-    db.close();
-  " 2>/dev/null || echo "[]"
+  node "$CLI" read-active-summary "$DB_FILE" 2>/dev/null || echo "[]"
 }
 
 count_active() {
   if [[ ! -f "$DB_FILE" ]]; then echo 0; return; fi
-  node -e "
-    const Database = require('$NODE_MODULES/better-sqlite3');
-    const db = new Database('$DB_FILE');
-    console.log(db.prepare('SELECT COUNT(*) as c FROM knowledge WHERE status = ?').get('active').c);
-    db.close();
-  " 2>/dev/null || echo 0
+  node "$CLI" count-active "$DB_FILE" 2>/dev/null || echo 0
 }
 
 # Call knowledge_write MCP tool

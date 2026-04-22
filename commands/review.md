@@ -8,9 +8,9 @@ Open the consolidation report web UI to interactively browse daily consolidation
 ## Steps
 
 1. Locate plugin install path (via `$CLAUDE_PLUGIN_ROOT` or infer from current working directory)
-2. Check if `report-server.cjs` is already running: `lsof -i :19876` or try connecting
-3. If not running, start in background: `node $PLUGIN_ROOT/scripts/report-server.cjs --daemon --open-browser --port 19876 &`
-   Or use: `nohup node $PLUGIN_ROOT/scripts/report-server.cjs --daemon --open-browser --port 19876 > /dev/null 2>&1 &`
+2. Check if report server is already running: `lsof -i :19876` or try connecting
+3. If not running, start in background: `node $PLUGIN_ROOT/dist/report-server.js --daemon --open-browser --port 19876 &`
+   Or use: `nohup node $PLUGIN_ROOT/dist/report-server.js --daemon --open-browser --port 19876 > /dev/null 2>&1 &`
 4. Tell the user:
    - URL: `http://localhost:19876`
    - Instructions: browse daily consolidation reports, click Good/Normal/Bad for each operation, optionally add a comment and Submit
