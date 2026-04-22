@@ -1,0 +1,78 @@
+#!/usr/bin/env bash
+# pre-push hook: require documentation updates when source code changes
+#
+# Rule: if any .ts/.sh/.cjs file under src/ or scripts/ changed,
+#       at least one .md file in the repo root must also be changed
+#       in the same push (or the working tree must have uncommitted .md edits).
+#
+# Install: git config core.hooksPath .githooks
+
+set -euo pipefail
+
+# Collect files being pushed (commits not yet on remote)
+# $1 = remote name, $2 = remote url — we don't need them
+remote_branch="${3:-HEAD}"  # local ref
+remote_sha="${4:-}"         # remote sha (0000…0000 means new branch)
+
+# Find the common ancestor to determine which commits are new
+if [[ "$remote_sha" == "0000000000000000000000000000000000000000" ]]; then
+  # New branch — compare against initial commit or list all
+  range="$remote_branch"
+else
+  range="$remote_sha..$remote_branch"
+fi
+
+changed_files=$(git diff --name-only "$range" 2>/dev/null || git diff --name-only HEAD~1 2>/dev/null)
+
+if [[ -z "$changed_files" ]]; then
+  exit 0
+fi
+
+# Check if any source files changed
+src_pattern='^(src/.*\.ts|scripts/.*\.(sh|cjs))$'
+src_changed=false
+while IFS= read -r f; do
+  if echo "$f" | grep -qE "$src_pattern"; then
+    src_changed=true
+    break
+  fi
+done <<< "$changed_files"
+
+if [[ "$src_changed" == false ]]; then
+  exit 0
+fi
+
+# Check if any root-level .md files changed in this push
+doc_changed=false
+while IFS= read -r f; do
+  if echo "$f" | grep -qE '^[^/]+\.md$'; then
+    doc_changed=true
+    break
+  fi
+done <<< "$changed_files"
+
+if [[ "$doc_changed" == true ]]; then
+  exit 0
+fi
+
+# Also check working tree for uncommitted .md edits (user may have staged docs separately)
+if git diff --name-only HEAD | grep -qE '^[^/]+\.md$'; then
+  echo "⚠  Source code changed but no docs in this push — however uncommitted .md edits detected."
+  echo "   Consider committing your documentation changes before pushing."
+  exit 0
+fi
+
+echo ""
+echo "❌  BLOCKED: Source code changed without documentation updates."
+echo ""
+echo "   Changed source files:"
+while IFS= read -r f; do
+  if echo "$f" | grep -qE "$src_pattern"; then
+    echo "     - $f"
+  fi
+done <<< "$changed_files"
+echo ""
+echo "   Please update the relevant documentation (.md files) and include them in this push."
+echo "   Key docs: README.md, README_CN.md, AGENTS.md, auto-digest-design.md"
+echo ""
+exit 1
