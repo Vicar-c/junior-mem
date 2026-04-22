@@ -166,9 +166,9 @@ Each day's `state.json` tracks stage completion. The pipeline resumes from the f
 
 ### Feedback Loop (RL)
 
-1. User rates operations via web UI (Good/Normal/Bad)
-2. Ratings stored in `feedback_rating` column
-3. Next consolidation: Scanner reads unconsumed feedback for calibration prompt
+1. User rates operations via web UI (Good/Normal/Bad) with optional comments
+2. Ratings + comments stored in `feedback_rating` / `feedback_comment` columns
+3. Next consolidation: `generateCalibrationText()` feeds raw knowledge body + user comments into Scanner prompt — Scanner interprets feedback semantics directly (no hardcoded inference rules)
 4. After Scanner runs, `consume_feedback()` adjusts importance (+1 for good, -1 for bad)
 5. Feedback marked as consumed
 

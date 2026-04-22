@@ -120,11 +120,11 @@ Run `/junior-mem:review` to open a web UI where you can rate consolidation resul
 
 | Rating | Effect |
 |:------:|:------|
-| 👍 **Good** | Increases extraction priority for similar content |
+| 👍 **Good** | Boosts knowledge importance; signals Scanner to prioritize similar content |
 | 😐 **Normal** | No change |
-| 👎 **Bad** | Decreases extraction priority for similar content |
+| 👎 **Bad** | Lowers importance (or deprecates); signals Scanner to deprioritize similar content |
 
-Your feedback calibrates future consolidation decisions — junior-mem learns what types of knowledge you actually value.
+Leave a comment to explain *why* — your feedback (rating + comment + the knowledge content itself) is injected directly into the next Scanner run, so it learns your preferences from the semantics of what you write, not just the thumbs-up/down.
 
 ---
 

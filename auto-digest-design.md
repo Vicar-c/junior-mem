@@ -303,11 +303,20 @@ staging/*.jsonl
 在 Scanner 之后、Challenger 之前执行：
 
 1. `read_unconsumed_feedback()`: 读取未消费 feedback（`feedback_consumed = 0`，最多 20 条）
-2. Scanner 的 prompt 已包含这些 feedback 作为偏好校准文本
+2. `generateCalibrationText()`: 将 feedback 转为校准文本注入 Scanner prompt
+   - 每条 feedback 展示：评分 + 知识正文摘要（≤200 字） + 用户原始评论
+   - 不使用硬编码推断，由 Scanner 自行理解评论语义
 3. `consume_feedback()`: 执行 importance 调整 + 标记 consumed
    - good → `importance = MIN(5, importance + 1)`
    - bad → `importance = MAX(1, importance - 1)`，若已是 1 则 `status = deprecated`
    - 标记 `feedback_consumed = 1`
+
+校准文本格式示例：
+```
+1. [GOOD] "HTTP timeout patterns"
+   Content: "项目中 HTTP 客户端超时统一设为 3s，重试 2 次..."
+   User comment: "非常有用，这类配置细节就应该记下来"
+```
 
 防过拟合机制：
 - consumed 标记防止同一条反复消费
