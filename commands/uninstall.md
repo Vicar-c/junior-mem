@@ -24,14 +24,9 @@ bash "${CLAUDE_PLUGIN_ROOT}/scripts/uninstall.sh" --yes
 
 ## Step 3: Unregister plugin
 
-After the script completes, run:
+The uninstall script attempts automatic unregistration. If it failed, run manually:
 
 ```bash
-claude plugin remove junior-mem
-```
-
-If `claude plugin remove` fails or is not available, tell the user to manually run:
-```
 claude plugin uninstall junior-mem
 ```
 

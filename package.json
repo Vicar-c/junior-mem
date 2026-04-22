@@ -1,15 +1,36 @@
 {
   "name": "junior-mem",
   "version": "1.0.0",
-  "description": "Knowledge lifecycle management plugin for Claude Code",
-  "main": "index.js",
+  "description": "Knowledge lifecycle management plugin for Claude Code — observe, consolidate, retrieve.",
+  "bin": {
+    "junior-mem": "bin/junior-mem.js"
+  },
+  "files": [
+    "bin/",
+    "scripts/",
+    "commands/",
+    "hooks/",
+    ".claude-plugin/",
+    ".mcp.json"
+  ],
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1"
   },
-  "keywords": [],
-  "author": "",
-  "license": "ISC",
+  "keywords": [
+    "claude-code",
+    "claude",
+    "plugin",
+    "knowledge-management",
+    "memory",
+    "sqlite",
+    "fts5"
+  ],
+  "author": "wuzhengyu",
+  "license": "MIT",
   "type": "commonjs",
+  "engines": {
+    "node": ">=18"
+  },
   "dependencies": {
     "better-sqlite3": "^12.9.0"
   }

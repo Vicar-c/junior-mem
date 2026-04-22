@@ -41,7 +41,15 @@
 
 ## 快速开始
 
-在 Claude Code 中执行两条命令即可安装：
+**方式 A — npx 安装（推荐）**
+
+```bash
+npx junior-mem install
+```
+
+然后重启 Claude Code 即可。
+
+**方式 B — 插件市场安装**
 
 ```bash
 /plugin marketplace add Vicar-c/junior-mem
@@ -143,7 +151,7 @@ MCP server 提供工具，Claude Code 可在任意对话中调用，查找和使
 | `model_cheap` | `claude-haiku-4-5-20251001` | 用于提取和分类的模型 |
 | `model_strong` | `claude-opus-4-7` | 用于沉淀和质量审查的模型 |
 | `soft_limit` | `1000` | 活跃条目目标上限（触发裁剪） |
-| `consolidation_time` | `0 3 * * *` | 每夜沉淀的 cron 时间 |
+| `cron_schedule` | `0 3 * * *` | 每夜沉淀的 cron 时间 |
 
 ---
 
@@ -154,13 +162,14 @@ MCP server 提供工具，Claude Code 可在任意对话中调用，查找和使
 ├── knowledge.db          # SQLite + FTS5（主存储）
 ├── active/               # Markdown 导出（人类可读）
 ├── staging/              # 原始观察 JSONL 文件
-├── consolidation/        # 每日报告和操作日志
+├── consolidation/        # 每日报告和管线产物
 │   └── YYYY-MM-DD/
-│       ├── report.md     # 人类可读的沉淀报告
-│       └── ops.jsonl     # 操作日志
+│       └── report.md     # 人类可读的沉淀报告
 └── config.json           # 用户配置
 
 junior-mem/
+├── bin/
+│   └── junior-mem.js    # npx CLI 入口
 ├── commands/             # 斜杠命令
 │   ├── init.md           #   /junior-mem:init
 │   ├── review.md         #   /junior-mem:review
@@ -238,6 +247,13 @@ KNOWLEDGE_DIR=~/.claude/knowledge bash scripts/diagnose.sh status
 
 # 立即执行沉淀
 KNOWLEDGE_DIR=~/.claude/knowledge bash scripts/consolidate.sh
+
+# 测试观察提取
+KNOWLEDGE_DIR=~/.claude/knowledge bash scripts/diagnose.sh observe /path/to/session.jsonl
+
+# 通过 MCP 工具查询知识
+KNOWLEDGE_DIR=~/.claude/knowledge bash scripts/diagnose.sh mcp-search "HTTP 超时模式"
+KNOWLEDGE_DIR=~/.claude/knowledge bash scripts/diagnose.sh mcp-stats
 
 # 清理诊断产物
 KNOWLEDGE_DIR=~/.claude/knowledge bash scripts/diagnose.sh clean

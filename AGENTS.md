@@ -39,6 +39,8 @@ junior-mem/
 ├── .claude-plugin/
 │   └── plugin.json              # Plugin metadata (name, version)
 ├── .mcp.json                    # MCP server registration (knowledge-mcp.cjs)
+├── bin/
+│   └── junior-mem.js            # npx CLI entry point (install/uninstall)
 ├── hooks/
 │   └── hooks.json               # Hook definitions (SessionStart, Stop)
 ├── commands/                    # Slash command definitions
@@ -53,7 +55,7 @@ junior-mem/
 │   ├── consolidate.sh           # 5-stage nightly pipeline
 │   ├── knowledge-mcp.cjs        # MCP stdio server (SQLite + FTS5)
 │   ├── report-server.cjs        # HTTP feedback UI (port 19876)
-│   ├── test.sh                  # Manual test utilities
+│   ├── diagnose.sh              # Diagnostic & troubleshooting utilities
 │   └── uninstall.sh             # Complete cleanup
 ├── package.json                 # Node.js deps (better-sqlite3)
 ├── README.md                    # English docs
@@ -282,10 +284,10 @@ Lightweight HTTP server for reviewing consolidation results and submitting feedb
 ### Debugging observe pipeline
 ```bash
 # Test observation extraction on a specific transcript
-bash scripts/test.sh observe /path/to/session.jsonl
+bash scripts/diagnose.sh observe /path/to/session.jsonl
 
 # Check staging status
-bash scripts/test.sh status
+bash scripts/diagnose.sh status
 ```
 
 ### Running consolidation manually
@@ -295,12 +297,12 @@ KNOWLEDGE_DIR=~/.claude/knowledge bash scripts/consolidate.sh
 
 ### Querying knowledge via MCP
 ```bash
-bash scripts/test.sh mcp-search "http timeout"
-bash scripts/test.sh mcp-stats
+bash scripts/diagnose.sh mcp-search "http timeout"
+bash scripts/diagnose.sh mcp-stats
 ```
 
-### Cleanup (remove all data)
+### Cleanup (remove diagnostic artifacts)
 ```bash
-bash scripts/test.sh uninstall --yes
-# Or via slash command: /junior-mem:uninstall
+bash scripts/diagnose.sh clean
+# Full uninstall: /junior-mem:uninstall or npx junior-mem uninstall
 ```

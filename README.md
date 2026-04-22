@@ -41,7 +41,15 @@ When Claude Code's built-in memory already does a solid job, external memory plu
 
 ## Quick Start
 
-Install with two commands inside Claude Code:
+**Option A — npx install (recommended)**
+
+```bash
+npx junior-mem install
+```
+
+Then restart Claude Code.
+
+**Option B — Plugin marketplace**
 
 ```bash
 /plugin marketplace add Vicar-c/junior-mem
@@ -143,7 +151,7 @@ Configuration is stored in `~/.claude/knowledge/config.json` and set during `/ju
 | `model_cheap` | `claude-haiku-4-5-20251001` | Model for extraction and classification |
 | `model_strong` | `claude-opus-4-7` | Model for consolidation and quality review |
 | `soft_limit` | `1000` | Target max active entries (triggers pruning) |
-| `consolidation_time` | `0 3 * * *` | Cron schedule for nightly consolidation |
+| `cron_schedule` | `0 3 * * *` | Cron schedule for nightly consolidation |
 
 ---
 
@@ -154,13 +162,14 @@ Configuration is stored in `~/.claude/knowledge/config.json` and set during `/ju
 ├── knowledge.db          # SQLite + FTS5 (primary storage)
 ├── active/               # Markdown exports (human-readable)
 ├── staging/              # Raw observation JSONL files
-├── consolidation/        # Daily reports and operation logs
+├── consolidation/        # Daily reports and pipeline artifacts
 │   └── YYYY-MM-DD/
-│       ├── report.md     # Human-readable consolidation report
-│       └── ops.jsonl     # Operation log
+│       └── report.md     # Human-readable consolidation report
 └── config.json           # User configuration
 
 junior-mem/
+├── bin/
+│   └── junior-mem.js    # npx CLI entry point
 ├── commands/             # Slash commands
 │   ├── init.md           #   /junior-mem:init
 │   ├── review.md         #   /junior-mem:review
@@ -238,6 +247,13 @@ KNOWLEDGE_DIR=~/.claude/knowledge bash scripts/diagnose.sh status
 
 # Run consolidation now
 KNOWLEDGE_DIR=~/.claude/knowledge bash scripts/consolidate.sh
+
+# Test observation extraction on a transcript
+KNOWLEDGE_DIR=~/.claude/knowledge bash scripts/diagnose.sh observe /path/to/session.jsonl
+
+# Query knowledge via MCP tools
+KNOWLEDGE_DIR=~/.claude/knowledge bash scripts/diagnose.sh mcp-search "http timeout"
+KNOWLEDGE_DIR=~/.claude/knowledge bash scripts/diagnose.sh mcp-stats
 
 # Clean diagnostic artifacts
 KNOWLEDGE_DIR=~/.claude/knowledge bash scripts/diagnose.sh clean
